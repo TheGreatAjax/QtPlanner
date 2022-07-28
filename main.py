@@ -23,10 +23,14 @@ class MainWindow(qtw.QMainWindow):
         # self.scroll.setHorizontalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
         # self.scroll.setWidget(self.tabs_widget)
 
+        # Create the central widget and layout
         self.main_widget = qtw.QWidget()
         self.main_layout = qtw.QVBoxLayout()
         self.main_widget.setLayout(self.main_layout)
+        self.setCentralWidget(self.main_widget)
 
+        # Tabs widget holds pages with the tasks
+        # organized by category
         self.tabs_widget = qtw.QTabWidget()
     
         # Create tabs
@@ -39,14 +43,18 @@ class MainWindow(qtw.QMainWindow):
             tab.setLayout(qtw.QVBoxLayout())
 
         # Populate the tabs
-        for task_db in self.db.get_connection().execute(
+        for db_item in self.db.get_connection().execute(
             'SELECT * FROM tasks'
         ).fetchall():
-            tabs = Task.tabs_for(task_db, self.tabs)
+
+            # Find and add copies of the task
+            # to the tabs the task belongs to
+            tabs = Task.tabs_for(db_item, self.tabs)
             for tab in tabs:
                 tab.layout().addWidget(Task(
-                    self.db, task_db['id'], self.tabs, parent=self.tabs_widget))
+                    self.db, db_item['id'], self.tabs, parent=self.tabs_widget))
 
+        # Setup action buttons
         self.actions = qtw.QWidget()
         self.actions_layout = qtw.QHBoxLayout()
         self.actions.setLayout(self.actions_layout)
@@ -61,12 +69,12 @@ class MainWindow(qtw.QMainWindow):
         self.prioritize_button.clicked.connect(self.prioritize)
         self.prioritize_button.setSizePolicy(qtw.QSizePolicy.Fixed, qtw.QSizePolicy.Fixed)
 
+        # Add widgets to layouts
         self.actions_layout.addWidget(self.add_button)
         self.actions_layout.addWidget(self.prioritize_button)
 
         self.main_layout.addWidget(self.tabs_widget, stretch=9)
         self.main_layout.addWidget(self.actions, stretch=1, alignment=qtc.Qt.AlignRight)
-        self.setCentralWidget(self.main_widget)
 
     # Adding new task
     def add_task(self):
@@ -77,7 +85,7 @@ class MainWindow(qtw.QMainWindow):
         if result == qtw.QDialog.Accepted:
 
             # Get the task's data
-            # and add to database
+            # and insert into database
             cur = self.db.get_cursor()
             desc = dlg.description.text()
             date = dlg.date.date().toJulianDay()
@@ -97,7 +105,6 @@ class MainWindow(qtw.QMainWindow):
             tabs = Task.tabs_for(cur.execute(
                 'SELECT * FROM tasks WHERE id=?', [cur.lastrowid]
                 ).fetchone(), self.tabs)
-                
             for tab in tabs:
                 tab.layout().addWidget(
                     Task(self.db, cur.lastrowid, self.tabs, parent=self.tabs_widget))
@@ -115,13 +122,16 @@ class MainWindow(qtw.QMainWindow):
             layout.removeWidget(t)
             
         # Sort the tasks
+        today = qtc.QDate().currentDate().toJulianDay()
         tasks.sort(
-            key=lambda t: t.db_item['difficulty'] / (t.db_item['date'] - qtc.QDate().currentDate().toJulianDay() + 1),
+            key=lambda t: (t.db_item['difficulty'] / 
+                (t.db_item['date'] - today + 1)), # +1 so to avoid div by zero 
             reverse=True)
         
         # Add newly sorted tasks
         for t in tasks:
             layout.addWidget(t)
+    
 
 def main():
     app = qtw.QApplication([])

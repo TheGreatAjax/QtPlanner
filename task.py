@@ -1,7 +1,10 @@
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as qtc
 
+# Class holding a task's description
+# and also details which can be shown by click
 class taskDescription(qtw.QWidget):
+
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
@@ -10,6 +13,7 @@ class taskDescription(qtw.QWidget):
         self.initUI()
     
     def initUI(self):
+
         self.main_layout = qtw.QVBoxLayout()
 
         # Make the task clickable
@@ -31,7 +35,8 @@ class taskDescription(qtw.QWidget):
             background-color: white;
         ''')
         self.details_layout = qtw.QHBoxLayout()
-        
+        self.details.setLayout(self.details_layout)
+
         # Add the notes
         notes = qtw.QPlainTextEdit(db_item['notes'])
         notes.setStyleSheet('''
@@ -50,16 +55,19 @@ class taskDescription(qtw.QWidget):
         modify_button = qtw.QPushButton('Modify')
         modify_button.clicked.connect(self.parent.modify)
         info.addRow(modify_button)
+        modify_button.setSizePolicy(qtw.QSizePolicy.Fixed,
+                                 qtw.QSizePolicy.Fixed)
 
-        # Put the elements of the datails layout
+        # Add widgets to the layouts
         self.details_layout.addWidget(notes)
         self.details_layout.addLayout(info)
-        self.details.setLayout(self.details_layout)
 
         self.main_layout.addWidget(self.main_text)
         self.setLayout(self.main_layout)
     
+    # Toggle between showing and hiding the detailes
     def toggleDescription(self, checked):
+
         if checked:
             self.layout().addWidget(self.details)
         else:
@@ -69,10 +77,11 @@ class Task(qtw.QWidget):
 
    # Get appropriate tabs for a task
     def tabs_for(db_item, all_tabs):
+
         tabs = [all_tabs['All Tasks']] # The tabs
         date = db_item['date']
         today = qtc.QDate.currentDate().toJulianDay()
-        if date < today:
+        if date < today and not db_item['completed']:
             tabs.append(all_tabs['Missed'])
         else:
             if date <= today + 7:
@@ -96,9 +105,9 @@ class Task(qtw.QWidget):
         return -1
     
     def __init__(self, db, db_index, all_tabs, parent=None):
+
         self.parent = parent
         super().__init__(self.parent)
-        self.setWindowTitle('task')
         self.db = db
         self.id = db_index
         self.all_tabs = all_tabs # All possible tabs 
@@ -117,8 +126,11 @@ class Task(qtw.QWidget):
         self.setSizePolicy(qtw.QSizePolicy.Expanding, qtw.QSizePolicy.Fixed)
 
         # Layout:
-        # Task | Checkbox or Remove button
+        # | Task Description | Checkbox + Remove button |
         self.main_layout = qtw.QHBoxLayout()
+        self.setLayout(self.main_layout)
+
+        # The task's description
         self.description = taskDescription(parent=self)
 
         # Actions with the task: remove and check out
@@ -133,17 +145,18 @@ class Task(qtw.QWidget):
         self.remove_button.clicked.connect(self.remove)
         self.remove_button.setEnabled(False)
 
-        # Put it together
+        # Put items to layouts
         self.actions_layout.addWidget(self.checkBox)
         self.actions_layout.addWidget(self.remove_button)
 
         self.main_layout.addWidget(self.description, stretch=9)
         self.main_layout.addLayout(self.actions_layout, stretch=1)
 
-        self.setLayout(self.main_layout)
-
+        # Set checkout state
         if self.db_item['completed']:
             self.__checkoutUtil(2)
+        
+        # The task was missed: disable the checkbox
         elif self.all_tabs['Missed'] in self.tabs:
             self.checkBox.setEnabled(False)
             self.remove_button.setEnabled(True)
@@ -178,12 +191,16 @@ class Task(qtw.QWidget):
         # Remove the task from Completed tab if was uncheked
         # and add to it otherwise
         completed = self.all_tabs['Completed']
+
+        # Remove
         if completed in self.tabs:
             index = Task.getAt(self.id, completed.layout())
             item = completed.layout().takeAt(index)
             item.widget().setParent(None)
             del item
             self.tabs.remove(completed)
+        
+        # Add
         else:
             completed.layout().addWidget(Task(
                 self.db, self.id, self.all_tabs, self.parent
@@ -215,6 +232,7 @@ class Task(qtw.QWidget):
     
     # Modify the task
     def modify(self):
+
         dlg = taskInput(task_item=self.db_item, parent=self.parent)
         result = dlg.exec_()
         if result == qtw.QDialog.Accepted:
@@ -267,10 +285,11 @@ class Task(qtw.QWidget):
                         self.db, self.id, self.all_tabs, self.parent
                     ))   
 
-# Get new task or modify
+# Dialog for getting new task or modifying one
 class taskInput(qtw.QDialog):
 
     def __init__(self, task_item=None, parent=None):
+
         super().__init__(parent)
         self.setFixedSize(400, 200)
 
@@ -290,7 +309,7 @@ class taskInput(qtw.QDialog):
         self.difficulty = qtw.QSpinBox()
         self.difficulty.setRange(1, 5)
 
-        # If we are modifying the item
+        # Fill the fields if modifying existing task
         if task_item is not None:
             self.description.setText(task_item['description'])
             self.notes.setPlainText(task_item['notes'])
@@ -304,10 +323,12 @@ class taskInput(qtw.QDialog):
         # The dialog's buttons
         self.buttonBox = qtw.QDialogButtonBox(
             qtw.QDialogButtonBox.Save | qtw.QDialogButtonBox.Cancel)
+
         # Link actions on the button box with the dialog
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
 
+        # Fill the form
         form.addRow('&Description', self.description)
         form.addRow('&Notes (optional): ', self.notes)
         form.addRow('&Deadline: ', self.date)
