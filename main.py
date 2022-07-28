@@ -1,7 +1,7 @@
 import sys
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as qtc
-from db import Db
+from database.db import Db
 from task import Task, taskInput
 
 class MainWindow(qtw.QMainWindow):
@@ -11,7 +11,7 @@ class MainWindow(qtw.QMainWindow):
         self.height = 600
         self.setWindowTitle('Planner')
 
-        self.db = Db('tasks.db')
+        self.db = Db()
         self.initUI()
     
     def initUI(self):
