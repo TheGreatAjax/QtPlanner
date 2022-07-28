@@ -1,10 +1,8 @@
-from ctypes import alignment
 import sys
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as qtc
 from db import Db
 from task import Task, taskInput
-
 
 class MainWindow(qtw.QMainWindow):
     def __init__(self):
@@ -27,11 +25,12 @@ class MainWindow(qtw.QMainWindow):
 
         self.main_widget = qtw.QWidget()
         self.main_layout = qtw.QVBoxLayout()
+        self.main_widget.setLayout(self.main_layout)
 
         self.tabs_widget = qtw.QTabWidget()
     
         # Create tabs
-        tab_names = ['All Tasks', 'Today', 'Week']
+        tab_names = ['All Tasks', 'Today', 'Upcoming 7 days', 'Completed']
         self.tabs = dict()
         for name in tab_names:
             tab = self.tabs[name] = qtw.QWidget()
@@ -66,7 +65,6 @@ class MainWindow(qtw.QMainWindow):
 
         self.main_layout.addWidget(self.tabs_widget, stretch=9)
         self.main_layout.addWidget(self.actions, stretch=1, alignment=qtc.Qt.AlignRight)
-        self.main_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.main_widget)
 
     # Adding new task
@@ -105,7 +103,7 @@ class MainWindow(qtw.QMainWindow):
         
     # Prioritize tasks by ~[DIFFICULTY / DEADLINE]
     def prioritize(self):
-        
+
         # Get the current page
         page = self.tabs_widget.currentWidget()
         layout = page.layout()

@@ -73,9 +73,11 @@ class Task(qtw.QWidget):
         date = db_item['date']
         today = qtc.QDate.currentDate().toJulianDay()
         if date <= today + 7:
-            tabs.append(all_tabs['Week'])
+            tabs.append(all_tabs['Upcoming 7 days'])
         if date == today:
             tabs.append(all_tabs['Today'])
+        if db_item['Completed']:
+            tabs.append(all_tabs['Completed'])
 
         return tabs
 
@@ -112,7 +114,7 @@ class Task(qtw.QWidget):
 
         # Layout:
         # Task | Checkbox or Remove button
-        self.layout = qtw.QHBoxLayout()
+        self.main_layout = qtw.QHBoxLayout()
         self.description = taskDescription(parent=self)
 
         # Actions with the task: remove and check out
@@ -131,15 +133,13 @@ class Task(qtw.QWidget):
         self.actions_layout.addWidget(self.checkBox)
         self.actions_layout.addWidget(self.remove_button)
 
-        self.layout.addWidget(self.description)
-        self.layout.addLayout(self.actions_layout)
+        self.main_layout.addWidget(self.description, stretch=9)
+        self.main_layout.addLayout(self.actions_layout, stretch=1)
 
-        self.layout.setStretch(0, 9)
-        self.layout.setStretch(1, 1)
-
-        self.setLayout(self.layout)
+        self.setLayout(self.main_layout)
     
-    def checkout(self, s):
+    # Set the relevant graphics for checked/unchecked task
+    def __checkoutUtil(self, s):
         f = self.description.main_text.font()
         if s == qtc.Qt.Checked:
             f.setStrikeOut(True)
@@ -147,7 +147,42 @@ class Task(qtw.QWidget):
         else:
             f.setStrikeOut(False)
             self.remove_button.setEnabled(False)
+        
+        # Disconnect temporarily so to avoid infinite recursion
+        self.checkBox.stateChanged.disconnect(self.checkout)
+        self.checkBox.setCheckState(s)
+        self.checkBox.stateChanged.connect(self.checkout)
         self.description.main_text.setFont(f)
+
+    # Mark the task as completed on all tabs
+    def checkout(self, s):
+
+        # Update the database
+        self.db.get_connection().execute(
+            'UPDATE tasks SET completed=? WHERE id=?',
+            [int(s), self.id]
+        )
+
+        # Remove the task from Completed tab if was uncheked
+        # and add to it otherwise
+        completed = self.all_tabs['Completed']
+        if completed in self.tabs:
+            index = Task.getAt(self.id, completed.layout())
+            item = completed.layout().takeAt(index)
+            item.widget().setParent(None)
+            del item
+            self.tabs.remove(completed)
+        else:
+            completed.layout().addWidget(Task(
+                self.db, self.id, self.all_tabs, self.parent
+            ))
+            self.tabs.append(completed)
+        
+        # Mark as completed on each tab
+        for tab in self.tabs:
+            layout = tab.layout()
+            index = Task.getAt(self.id, layout)
+            layout.itemAt(index).widget().__checkoutUtil(s)
     
     # Remove the task from all tabs it belongs to
     def remove(self):
@@ -166,6 +201,7 @@ class Task(qtw.QWidget):
         con.execute('DELETE FROM tasks WHERE id=?', [self.id])
         con.commit()
     
+    # Modify the task
     def modify(self):
         dlg = taskInput(task_item=self.db_item, parent=self.parent)
         result = dlg.exec_()
