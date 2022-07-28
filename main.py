@@ -1,3 +1,4 @@
+from ctypes import alignment
 import sys
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as qtc
@@ -46,15 +47,25 @@ class MainWindow(qtw.QMainWindow):
                 tab.layout().addWidget(Task(
                     self.db, task_db['id'], self.tabs, parent=self.tabs_widget))
 
-        self.actions = qtw.QHBoxLayout()
+        self.actions = qtw.QWidget()
+        self.actions_layout = qtw.QHBoxLayout()
+        self.actions.setLayout(self.actions_layout)
+
         # Add new task button
         self.add_button = qtw.QPushButton('Add')
         self.add_button.clicked.connect(self.add_task)
         self.add_button.setSizePolicy(qtw.QSizePolicy.Fixed, qtw.QSizePolicy.Fixed)
 
-        self.actions.addWidget(self.add_button, alignment=qtc.Qt.AlignRight)
+        # Prioritize button
+        self.prioritize_button = qtw.QPushButton('Prioritize')
+        self.prioritize_button.clicked.connect(self.prioritize)
+        self.prioritize_button.setSizePolicy(qtw.QSizePolicy.Fixed, qtw.QSizePolicy.Fixed)
+
+        self.actions_layout.addWidget(self.add_button)
+        self.actions_layout.addWidget(self.prioritize_button)
+
         self.main_layout.addWidget(self.tabs_widget, stretch=9)
-        self.main_layout.addLayout(self.actions, stretch=1)
+        self.main_layout.addWidget(self.actions, stretch=1, alignment=qtc.Qt.AlignRight)
         self.main_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.main_widget)
 
@@ -91,6 +102,27 @@ class MainWindow(qtw.QMainWindow):
             for tab in tabs:
                 tab.layout().addWidget(
                     Task(self.db, cur.lastrowid, self.tabs, parent=self.tabs_widget))
+        
+    # Prioritize tasks by ~[DIFFICULTY / DEADLINE]
+    def prioritize(self):
+        
+        # Get the current page
+        page = self.tabs_widget.currentWidget()
+        layout = page.layout()
+        tasks = page.children()[1:]
+
+        # Clean the layout
+        for t in tasks:
+            layout.removeWidget(t)
+            
+        # Sort the tasks
+        tasks.sort(
+            key=lambda t: t.db_item['difficulty'] / (t.db_item['date'] - qtc.QDate().currentDate().toJulianDay() + 1),
+            reverse=True)
+        
+        # Add newly sorted tasks
+        for t in tasks:
+            layout.addWidget(t)
 
 def main():
     app = qtw.QApplication([])
