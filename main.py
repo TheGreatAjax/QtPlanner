@@ -1,3 +1,4 @@
+import re
 import sys
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as qtc
@@ -34,65 +35,67 @@ class MainWindow(qtw.QMainWindow):
         # self.tasks.setTabPosition(qtw.QTabWidget.TabPosition.West)
     
         # Create tabs
-        self.all_tab = qtw.QWidget()
-        self.today_tab = qtw.QWidget()
-        self.week_tab = qtw.QWidget()
-        self.tasks.addTab(self.all_tab, 'All Tasks')
-        self.tasks.addTab(self.today_tab, 'Today')
-        self.tasks.addTab(self.week_tab, 'Week')
+        tab_names = ['All Tasks', 'Today', 'Week']
+        self.tabs = dict()
+        for name in tab_names:
+            tab = self.tabs[name] = qtw.QWidget()
+            self.tasks.addTab(tab, name)
+            tab.setLayout(qtw.QVBoxLayout())
 
         # Populate tabs
-        self.populate(self.all_tab)
-        self.populate(self.today_tab,
-                     condition='WHERE date=?',
-                     parameters=[qtc.QDate.currentDate().toJulianDay()])
-        self.populate(self.week_tab,
-                     condition='WHERE date<=?',
-                     parameters=[qtc.QDate.currentDate().addDays(7).toJulianDay()])
+        for task_db in self.db.get_connection().execute(
+            'SELECT * FROM tasks'
+        ).fetchall():
+            tabs = self.tabs_for(task_db)
+            for tab in tabs:
+                tab.layout().addWidget(Task(self.db, task_db['id'], tabs))
 
-        # Place the sidebar on the left of the main window
-        # self.tasksDock = qtw.QDockWidget()
-        # self.tasksDock.setWidget(self.tasks)
-        # self.addDockWidget(qtc.Qt.LeftDockWidgetArea, self.tasksDock)
-        # self.tasks.setMinimumSize(self.width, self.height - 400)
         self.setCentralWidget(self.tasks)
 
+    # Get appropriate tabs for the task
+    def tabs_for(self, task_db):
+        tabs = [self.tabs['All Tasks']] # The tabs
+        date = task_db['date']
+        today = qtc.QDate.currentDate().toJulianDay()
+        if date <= today + 7:
+            tabs.append(self.tabs['Week'])
+        if date == today:
+            tabs.append(self.tabs['Today'])
 
+        return tabs
 
-    def populate(self, tab, condition='', parameters=[]):
-        tab.layout = qtw.QVBoxLayout()
-        tasks = self.db.get_connection().execute(
-            'SELECT id FROM tasks ' + condition, parameters
-        ).fetchall()
-        for task_id in tasks:
-            db_task = Task(self.db, task_id['id'])
-            tab.layout.addWidget(db_task)
-        tab.setLayout(tab.layout)
-
+    # Adding new task
     def add_task(self):
+
+        # Call the dialog
         dlg = taskInput(self)
         result = dlg.exec_()
         if result == qtw.QDialog.Accepted:
+
+            # Get the task's data
+            # and add to database
             cur = self.db.get_cursor()
             desc = dlg.description.text()
             date = dlg.date.date().toJulianDay()
+            notes = dlg.notes.toPlainText()
+            if not notes:
+                notes = '-'
+            dif = dlg.difficulty.value()
             cur.execute(
-                'INSERT INTO tasks (description, date) VALUES (?, ?)',
-                [desc, date]
+                'INSERT INTO tasks '
+                '(description, notes, difficulty, date) '
+                'VALUES (?, ?, ?, ?)',
+                [desc, notes, dif, date]
             )
             self.db.get_connection().commit()
 
-            # Add the task to the appropriate tabs
-            task = Task(self.db, cur.lastrowid)
-            today = qtc.QDate.currentDate().toJulianDay()
-            tabs = [self.all_tab] # Tabs to which the task belongs
-            if date <= today + 7:
-                tabs.append(self.week_tab)
-            if date == today:
-                tabs.append(self.today_tab)
+            # Add the task to appripriate tabs
+            tabs = self.tabs_for(cur.execute(
+                'SELECT * FROM tasks WHERE id=?', [cur.lastrowid]
+                ).fetchone())
+                
             for tab in tabs:
-                tab.layout.addWidget(task)
-                tab.setLayout(tab.layout)
+                tab.layout().addWidget(Task(self.db, cur.lastrowid, tabs))
 
 def main():
     app = qtw.QApplication([])

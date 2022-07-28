@@ -3,10 +3,12 @@ import os
 
 class Db:
     def __init__(self, filename):
-        # filename = os.path.join('planner', filename)
+        cwd = os.getcwd()
+        if not os.path.basename(cwd) == 'planner':
+            os.chdir(cwd + '/planner')
         if not os.path.exists(filename):
             self.con = sqlite3.connect(filename)
-            self.init_db(schema='planner/schema.sql')
+            self.init_db(schema='./schema.sql')
         else:
             self.con = sqlite3.connect(filename)
         self.con.row_factory = sqlite3.Row
