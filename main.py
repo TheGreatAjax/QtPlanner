@@ -22,35 +22,41 @@ class MainWindow(qtw.QMainWindow):
         # self.scroll = qtw.QScrollArea(self)
         # self.scroll.setVerticalScrollBarPolicy(qtc.Qt.ScrollBarAsNeeded)
         # self.scroll.setHorizontalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
-        # self.scroll.setWidget(self.tasks)
+        # self.scroll.setWidget(self.tabs_widget)
 
-        # Add new task button
-        self.add_button = qtw.QPushButton('Add', self)
-        self.add_button.clicked.connect(self.add_task)
+        self.main_widget = qtw.QWidget()
+        self.main_layout = qtw.QVBoxLayout()
 
-        # Set the sidebar containing selector buttons
-        self.tasks = qtw.QTabWidget(self)
-        self.tasks.setCornerWidget(self.add_button, qtc.Qt.Corner.BottomRightCorner)
-        # self.tasks.setTabPosition(qtw.QTabWidget.TabPosition.West)
+        self.tabs_widget = qtw.QTabWidget()
     
         # Create tabs
         tab_names = ['All Tasks', 'Today', 'Week']
         self.tabs = dict()
         for name in tab_names:
             tab = self.tabs[name] = qtw.QWidget()
-            self.tasks.addTab(tab, name)
+            self.tabs_widget.addTab(tab, name)
             tab.setLayout(qtw.QVBoxLayout())
 
-        # Populate tabs
+        # Populate the tabs
         for task_db in self.db.get_connection().execute(
             'SELECT * FROM tasks'
         ).fetchall():
             tabs = Task.tabs_for(task_db, self.tabs)
             for tab in tabs:
                 tab.layout().addWidget(Task(
-                    self.db, task_db['id'], self.tabs, parent=self))
+                    self.db, task_db['id'], self.tabs, parent=self.tabs_widget))
 
-        self.setCentralWidget(self.tasks)
+        self.actions = qtw.QHBoxLayout()
+        # Add new task button
+        self.add_button = qtw.QPushButton('Add')
+        self.add_button.clicked.connect(self.add_task)
+        self.add_button.setSizePolicy(qtw.QSizePolicy.Fixed, qtw.QSizePolicy.Fixed)
+
+        self.actions.addWidget(self.add_button, alignment=qtc.Qt.AlignRight)
+        self.main_layout.addWidget(self.tabs_widget, stretch=9)
+        self.main_layout.addLayout(self.actions, stretch=1)
+        self.main_widget.setLayout(self.main_layout)
+        self.setCentralWidget(self.main_widget)
 
     # Adding new task
     def add_task(self):
@@ -84,7 +90,7 @@ class MainWindow(qtw.QMainWindow):
                 
             for tab in tabs:
                 tab.layout().addWidget(
-                    Task(self.db, cur.lastrowid, self.tabs, parent=self))
+                    Task(self.db, cur.lastrowid, self.tabs, parent=self.tabs_widget))
 
 def main():
     app = qtw.QApplication([])
