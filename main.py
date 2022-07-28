@@ -30,7 +30,8 @@ class MainWindow(qtw.QMainWindow):
         self.tabs_widget = qtw.QTabWidget()
     
         # Create tabs
-        tab_names = ['All Tasks', 'Today', 'Upcoming 7 days', 'Completed']
+        tab_names = ['All Tasks', 'Today', 'Upcoming 7 days', 
+                    'Completed', 'Missed']
         self.tabs = dict()
         for name in tab_names:
             tab = self.tabs[name] = qtw.QWidget()

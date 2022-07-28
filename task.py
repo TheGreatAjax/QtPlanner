@@ -72,12 +72,15 @@ class Task(qtw.QWidget):
         tabs = [all_tabs['All Tasks']] # The tabs
         date = db_item['date']
         today = qtc.QDate.currentDate().toJulianDay()
-        if date <= today + 7:
-            tabs.append(all_tabs['Upcoming 7 days'])
-        if date == today:
-            tabs.append(all_tabs['Today'])
-        if db_item['Completed']:
-            tabs.append(all_tabs['Completed'])
+        if date < today:
+            tabs.append(all_tabs['Missed'])
+        else:
+            if date <= today + 7:
+                tabs.append(all_tabs['Upcoming 7 days'])
+            if date == today:
+                tabs.append(all_tabs['Today'])
+            if db_item['Completed']:
+                tabs.append(all_tabs['Completed'])
 
         return tabs
 
@@ -110,6 +113,7 @@ class Task(qtw.QWidget):
         self.initUI()
     
     def initUI(self):
+
         self.setSizePolicy(qtw.QSizePolicy.Expanding, qtw.QSizePolicy.Fixed)
 
         # Layout:
@@ -137,6 +141,12 @@ class Task(qtw.QWidget):
         self.main_layout.addLayout(self.actions_layout, stretch=1)
 
         self.setLayout(self.main_layout)
+
+        if self.db_item['completed']:
+            self.__checkoutUtil(2)
+        elif self.all_tabs['Missed'] in self.tabs:
+            self.checkBox.setEnabled(False)
+            self.remove_button.setEnabled(True)
     
     # Set the relevant graphics for checked/unchecked task
     def __checkoutUtil(self, s):
@@ -158,10 +168,12 @@ class Task(qtw.QWidget):
     def checkout(self, s):
 
         # Update the database
-        self.db.get_connection().execute(
+        con = self.db.get_connection()
+        con.execute(
             'UPDATE tasks SET completed=? WHERE id=?',
             [int(s), self.id]
         )
+        con.commit()
 
         # Remove the task from Completed tab if was uncheked
         # and add to it otherwise
@@ -271,7 +283,7 @@ class taskInput(qtw.QDialog):
         self.notes = qtw.QPlainTextEdit()
 
         # Get the deadline and difficulty
-        self.date = qtw.QDateEdit(qtc.QDate.currentDate())
+        self.date = qtw.QDateEdit()
         self.date.setDateRange(qtc.QDate.currentDate(),
                          qtc.QDate.currentDate().addDays(365))
 
@@ -286,6 +298,7 @@ class taskInput(qtw.QDialog):
             self.difficulty.setValue(task_item['difficulty'])
             self.setWindowTitle('Modify task')
         else:
+            self.date.setDate(qtc.QDate.currentDate())
             self.setWindowTitle('Add Task')
 
         # The dialog's buttons
