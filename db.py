@@ -3,7 +3,7 @@ import os
 
 class Db:
     def __init__(self, filename):
-        filename = os.path.join('planner', filename)
+        # filename = os.path.join('planner', filename)
         if not os.path.exists(filename):
             self.con = sqlite3.connect(filename)
             self.init_db(schema='planner/schema.sql')

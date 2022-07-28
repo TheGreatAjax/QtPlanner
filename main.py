@@ -18,92 +18,81 @@ class MainWindow(qtw.QMainWindow):
     def initUI(self):
         self.resize(self.width, self.height)
 
-        # The widget holding all the currently selected tasks
-        self.tasks = qtw.QFrame(self)
-
-        # Set the layout
-        self.tasks_layout = qtw.QVBoxLayout()
-        self.show_all()
-        # tasks = self.db.get_connection().execute(
-        #     'SELECT id FROM tasks',
-        # ).fetchall()
-        # for task_id in tasks:
-        #     db_task = Task(self.db, task_id['id'])
-        #     self.tasks_layout.addWidget(db_task)
-        self.tasks.setLayout(self.tasks_layout)
-
         # Set the vertical scroll bar
-        self.scroll = qtw.QScrollArea(self)
-        self.scroll.setVerticalScrollBarPolicy(qtc.Qt.ScrollBarAsNeeded)
-        self.scroll.setHorizontalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
-        self.scroll.setWidget(self.tasks)
-
-        # Set the sidebar containing selector buttons
-        self.sidebar = qtw.QWidget()
-        self.sidebar_layout = qtw.QVBoxLayout()
-        self.sidebar.setLayout(self.sidebar_layout)
-
-        # Show all tasks button
-        self.all_button = qtw.QPushButton('All tasks', self)
-        self.all_button.setCheckable(True)
-        self.all_button.clicked.connect(self.show_all)
-        self.sidebar_layout.addWidget(self.all_button)
-
-        # Show today's tasks button
-        self.today_button = qtw.QPushButton('Today', self)
-        self.today_button.setCheckable(True)
-        self.today_button.clicked.connect(self.show_today)
-        self.sidebar_layout.addWidget(self.today_button)
-
-        # Place the sidebar on the left of the main window
-        self.sidebarDock = qtw.QDockWidget()
-        self.sidebarDock.setWidget(self.sidebar)
-        self.addDockWidget(qtc.Qt.LeftDockWidgetArea, self.sidebarDock)
+        # self.scroll = qtw.QScrollArea(self)
+        # self.scroll.setVerticalScrollBarPolicy(qtc.Qt.ScrollBarAsNeeded)
+        # self.scroll.setHorizontalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
+        # self.scroll.setWidget(self.tasks)
 
         # Add new task button
         self.add_button = qtw.QPushButton('Add', self)
         self.add_button.clicked.connect(self.add_task)
 
+        # Set the sidebar containing selector buttons
+        self.tasks = qtw.QTabWidget()
+        self.tasks.setCornerWidget(self.add_button, qtc.Qt.Corner.BottomRightCorner)
+        # self.tasks.setTabPosition(qtw.QTabWidget.TabPosition.West)
+    
+        # Create tabs
+        self.all_tab = qtw.QWidget()
+        self.today_tab = qtw.QWidget()
+        self.week_tab = qtw.QWidget()
+        self.tasks.addTab(self.all_tab, 'All Tasks')
+        self.tasks.addTab(self.today_tab, 'Today')
+        self.tasks.addTab(self.week_tab, 'Week')
+
+        # Populate tabs
+        self.populate(self.all_tab)
+        self.populate(self.today_tab,
+                     condition='WHERE date=?',
+                     parameters=[qtc.QDate.currentDate().toJulianDay()])
+        self.populate(self.week_tab,
+                     condition='WHERE date<=?',
+                     parameters=[qtc.QDate.currentDate().addDays(7).toJulianDay()])
+
+        # Place the sidebar on the left of the main window
+        # self.tasksDock = qtw.QDockWidget()
+        # self.tasksDock.setWidget(self.tasks)
+        # self.addDockWidget(qtc.Qt.LeftDockWidgetArea, self.tasksDock)
+        # self.tasks.setMinimumSize(self.width, self.height - 400)
         self.setCentralWidget(self.tasks)
 
+
+
+    def populate(self, tab, condition='', parameters=[]):
+        tab.layout = qtw.QVBoxLayout()
+        tasks = self.db.get_connection().execute(
+            'SELECT id FROM tasks ' + condition, parameters
+        ).fetchall()
+        for task_id in tasks:
+            db_task = Task(self.db, task_id['id'])
+            tab.layout.addWidget(db_task)
+        tab.setLayout(tab.layout)
 
     def add_task(self):
         dlg = taskInput(self)
         result = dlg.exec_()
         if result == qtw.QDialog.Accepted:
             cur = self.db.get_cursor()
+            desc = dlg.description.text()
+            date = dlg.date.date().toJulianDay()
             cur.execute(
                 'INSERT INTO tasks (description, date) VALUES (?, ?)',
-                [dlg.description.text(),
-                 dlg.date.date().toJulianDay()]
+                [desc, date]
             )
             self.db.get_connection().commit()
-            self.tasks_layout.addWidget(Task(self.db, cur.lastrowid))
-    
-    # Remove all currently displayed tasks
-    def clean_tasks(self):
-        for i in reversed(range(self.tasks_layout.count())): 
-            self.tasks_layout.itemAt(i).widget().setParent(None)
 
-    def show_all(self):
-        self.show_tasks()
-
-    def show_today(self):
-        self.show_tasks(
-            condition='WHERE date=?',
-            parameters=[qtc.QDate.currentDate().toJulianDay()])
-        
-    # Get tasks from database with specified condition
-    def show_tasks(self, condition='', parameters=[]):
-
-        self.clean_tasks()
-
-        tasks = self.db.get_connection().execute(
-            'SELECT id FROM tasks ' + condition, parameters
-        ).fetchall()
-        for task_id in tasks:
-            db_task = Task(self.db, task_id['id'])
-            self.tasks_layout.addWidget(db_task)
+            # Add the task to the appropriate tabs
+            task = Task(self.db, cur.lastrowid)
+            today = qtc.QDate.currentDate().toJulianDay()
+            tabs = [self.all_tab] # Tabs to which the task belongs
+            if date <= today + 7:
+                tabs.append(self.week_tab)
+            if date == today:
+                tabs.append(self.today_tab)
+            for tab in tabs:
+                tab.layout.addWidget(task)
+                tab.setLayout(tab.layout)
 
 def main():
     app = qtw.QApplication([])

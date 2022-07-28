@@ -37,8 +37,7 @@ class taskInput(qtw.QDialog):
     def __init__(self, parent):
         super().__init__(parent)
         self.setWindowTitle('Add Task')
-
-
+        
         # The input form
         form = qtw.QFormLayout()
         self.setLayout(form)
