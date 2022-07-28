@@ -122,10 +122,12 @@ class MainWindow(qtw.QMainWindow):
             layout.removeWidget(t)
             
         # Sort the tasks
+        # Completed and missed tasks are shown on the bottom
         today = qtc.QDate().currentDate().toJulianDay()
         tasks.sort(
-            key=lambda t: (t.db_item['difficulty'] / 
-                (t.db_item['date'] - today + 1)), # +1 so to avoid div by zero 
+            key=lambda t: (
+                t.db_item['difficulty'] * (not t.db_item['completed']) / 
+                (t.db_item['date'] - today + 0.5)), # +0.5 so to avoid div by zero 
             reverse=True)
         
         # Add newly sorted tasks
