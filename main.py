@@ -41,6 +41,8 @@ class MainWindow(qtw.QMainWindow):
             tab = self.tabs[name] = qtw.QWidget()
             self.tabs_widget.addTab(tab, name)
             tab.setLayout(qtw.QVBoxLayout())
+        self.active_tab = self.tabs['All Tasks'] # Keep track of the opened tab
+        self.tabs_widget.currentChanged.connect(self.cleanupTab)
 
         # Populate the tabs
         for db_item in self.db.get_connection().execute(
@@ -133,6 +135,15 @@ class MainWindow(qtw.QMainWindow):
         # Add newly sorted tasks
         for t in tasks:
             layout.addWidget(t)
+    
+    # Close up all open tasks
+    def cleanupTab(self):
+        tasks = self.active_tab.children()[1:]
+        for task in tasks:
+            if task.description.toggled:
+                task.description.toggleDescription(checked=False)
+
+        self.active_tab = self.tabs_widget.currentWidget()
     
 
 def main():

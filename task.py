@@ -10,6 +10,7 @@ class taskDescription(qtw.QWidget):
         self.parent = parent
         self.db_item = parent.db_item
 
+        self.toggled = False # Whether the details are toggled
         self.initUI()
     
     def initUI(self):
@@ -67,11 +68,13 @@ class taskDescription(qtw.QWidget):
     
     # Toggle between showing and hiding the detailes
     def toggleDescription(self, checked):
-
+        self.toggled = checked
         if checked:
             self.layout().addWidget(self.details)
         else:
             self.details.setParent(None)
+            self.main_text.setChecked(False)
+
 
 class Task(qtw.QWidget):
 
