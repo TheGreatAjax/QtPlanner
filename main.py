@@ -40,7 +40,9 @@ class MainWindow(qtw.QMainWindow):
         for name in tab_names:
             tab = self.tabs[name] = qtw.QWidget()
             self.tabs_widget.addTab(tab, name)
-            tab.setLayout(qtw.QVBoxLayout())
+            tab_layout = qtw.QVBoxLayout()
+            tab_layout.setSpacing(0)
+            tab.setLayout(tab_layout)
         self.active_tab = self.tabs['All Tasks'] # Keep track of the opened tab
         self.tabs_widget.currentChanged.connect(self.cleanupTab)
 
@@ -78,7 +80,6 @@ class MainWindow(qtw.QMainWindow):
         self.main_layout.addWidget(self.tabs_widget, stretch=9)
         self.main_layout.addWidget(self.actions, stretch=1, alignment=qtc.Qt.AlignRight)
 
-    # Adding new task
     def add_task(self):
 
         # Call the dialog

@@ -195,15 +195,12 @@ class Task(qtw.QWidget):
         # and add to it otherwise
         completed = self.all_tabs['Completed']
 
-        # Remove
         if completed in self.tabs:
             index = Task.getAt(self.id, completed.layout())
             item = completed.layout().takeAt(index)
             item.widget().setParent(None)
             del item
             self.tabs.remove(completed)
-        
-        # Add
         else:
             completed.layout().addWidget(Task(
                 self.db, self.id, self.all_tabs, self.parent
@@ -233,7 +230,6 @@ class Task(qtw.QWidget):
         con.execute('DELETE FROM tasks WHERE id=?', [self.id])
         con.commit()
     
-    # Modify the task
     def modify(self):
 
         dlg = taskInput(task_item=self.db_item, parent=self.parent)
